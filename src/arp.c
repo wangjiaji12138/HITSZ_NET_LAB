@@ -58,6 +58,25 @@ void arp_print() {
  */
 void arp_req(uint8_t *target_ip) {
     // TO-DO
+    // step1
+    buf_init(&txbuf, BUF_MAX_LEN);
+
+    // step2
+    arp_pkt_t arp_hdr = {
+        .hw_type16 = swap16(ARP_HW_ETHER),
+        .pro_type16 = swap16(NET_PROTOCOL_IP),
+        .hw_len = NET_MAC_LEN,
+        .pro_len = NET_IP_LEN,
+        .sender_ip = NET_IF_IP,
+        .sender_mac = NET_IF_MAC,
+        .target_mac = {0}
+    };
+    memcpy(arp_hdr.target_ip, target_ip, NET_IP_LEN);
+    // step3
+    arp_hdr.opcode16 = swap16(ARP_REQUEST);
+
+    // step4
+    ethernet_out((buf_t*)&arp_hdr, ether_broadcast_mac, NET_PROTOCOL_ARP);
 }
 
 /**
@@ -68,6 +87,25 @@ void arp_req(uint8_t *target_ip) {
  */
 void arp_resp(uint8_t *target_ip, uint8_t *target_mac) {
     // TO-DO
+    // step1
+    buf_init(&txbuf, BUF_MAX_LEN);
+
+    // step2
+    arp_pkt_t arp_hdr = {
+        .hw_type16 = swap16(ARP_HW_ETHER),
+        .pro_type16 = swap16(NET_PROTOCOL_IP),
+        .hw_len = NET_MAC_LEN,
+        .pro_len = NET_IP_LEN,
+        .sender_ip = NET_IF_IP,
+        .sender_mac = NET_IF_MAC,
+    };
+    memcpy(arp_hdr.target_mac, target_mac, NET_MAC_LEN);
+    memcpy(arp_hdr.target_ip, target_ip, NET_IP_LEN);
+    // step3
+    arp_hdr.opcode16 = swap16(ARP_REPLY);
+    
+    // step4
+    ethernet_out((buf_t*)&arp_hdr, target_mac, NET_PROTOCOL_ARP);
 }
 
 /**
@@ -78,6 +116,35 @@ void arp_resp(uint8_t *target_ip, uint8_t *target_mac) {
  */
 void arp_in(buf_t *buf, uint8_t *src_mac) {
     // TO-DO
+    // step1
+    if(buf->len < sizeof(arp_init_pkt)){
+        return;
+    }
+
+    // step2
+    arp_pkt_t arp_hdr;
+    memcpy(&arp_hdr, buf->data, sizeof(arp_init_pkt));
+    int valid = 1;
+    valid &= arp_hdr.hw_type16 == swap16(arp_init_pkt.hw_type16);
+    valid &= arp_hdr.pro_type16 == swap16(arp_init_pkt.pro_type16);
+    valid &= arp_hdr.hw_len == arp_init_pkt.hw_len;
+    valid &= arp_hdr.pro_len == arp_init_pkt.pro_len;
+    if(!valid){
+        return;
+    }
+
+    // step3
+    map_set(&arp_table, arp_hdr.sender_ip, arp_hdr.sender_mac);
+
+    // step4
+    buf_t * cached_buf = map_get(&arp_buf, arp_hdr.sender_ip);
+    if(cached_buf !=NULL){
+        ethernet_out(cached_buf, arp_hdr.sender_mac, NET_PROTOCOL_IP);
+        map_delete(&arp_buf, arp_hdr.sender_ip);
+    }
+    else if(arp_hdr.opcode16==swap16(ARP_REQUEST) && arp_hdr.target_ip==arp_init_pkt.sender_ip){
+        arp_resp(arp_hdr.sender_ip, arp_hdr.target_mac);
+    }
 }
 
 /**
@@ -89,6 +156,19 @@ void arp_in(buf_t *buf, uint8_t *src_mac) {
  */
 void arp_out(buf_t *buf, uint8_t *ip) {
     // TO-DO
+    // step1
+    uint8_t* mac = map_get(&arp_table, ip);
+
+    // step2
+    if(mac!=NULL){
+        ethernet_out(buf, mac, NET_PROTOCOL_IP);
+    }
+
+    // step3
+    else if(map_get(&arp_buf, ip)==NULL){
+        map_set(&arp_buf, ip, buf);
+        arp_req(ip);
+    }
 }
 
 /**
