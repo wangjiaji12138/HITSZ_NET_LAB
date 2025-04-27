@@ -26,8 +26,8 @@ void ip_in(buf_t *buf, uint8_t *src_mac) {
     ip_hdr_t *ip_hdr = (ip_hdr_t *)buf->data;
     int valid = 1;
     valid &= ip_hdr->version == IP_VERSION_4;
-    
-    valid &= swap16(ip_hdr->total_len16) > buf->len;
+    uint16_t total_len = swap16(ip_hdr->total_len16);
+    valid &= total_len <= buf->len;
     if(!valid){
         printf("ip_hdr is invalid!\n");
         return;
@@ -64,6 +64,7 @@ void ip_in(buf_t *buf, uint8_t *src_mac) {
 
     // step7
     if(net_in(buf_without_header, ip_hdr->protocol, ip_hdr->src_ip)==-1){
+        printf("icmp_unreachable\n");
         icmp_unreachable(buf, ip_hdr->src_ip, ICMP_CODE_PROTOCOL_UNREACH);
     }
 
