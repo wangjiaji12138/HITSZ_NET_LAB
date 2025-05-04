@@ -39,15 +39,12 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
     // step3
     uint16_t checksum = ip_hdr->hdr_checksum16;
     ip_hdr->hdr_checksum16 = 0;
-    ip_hdr->hdr_checksum16 = checksum16((uint16_t *)ip_hdr, sizeof(ip_hdr_t));
+    ip_hdr->hdr_checksum16 = checksum16((uint16_t *)buf->data, sizeof(ip_hdr_t));
     if (checksum != ip_hdr->hdr_checksum16)
     {
         return;
     }
-    else
-    {
-        ip_hdr->hdr_checksum16 = checksum;
-    }
+    ip_hdr->hdr_checksum16 = checksum;
 
     // step4
     if (memcmp(ip_hdr->dst_ip, net_if_ip, NET_IP_LEN) != 0)
@@ -100,7 +97,7 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
     ip_hdr->hdr_checksum16 = 0;
     memcpy(ip_hdr->src_ip, net_if_ip, NET_IP_LEN);
     memcpy(ip_hdr->dst_ip, ip, NET_IP_LEN);
-    ip_hdr->flags_fragment16 = swap16((offset / IP_HDR_OFFSET_PER_BYTE) | (mf ? IP_MORE_FRAGMENT : 0));
+    ip_hdr->flags_fragment16 = swap16((mf << 13) | (offset & 0x1fff));
 
     // step2
     ip_hdr->hdr_checksum16 = checksum16((uint16_t *)ip_hdr, sizeof(ip_hdr_t));
@@ -121,11 +118,9 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
     int this_id = global_id++;
     int offset = 0;
     int max_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
-    // Step1 检查数据报包长：
     if (buf->len > max_len)
     {
 
-        // Step2 分片处理：
         buf_t ip_buf;
         while (buf->len > max_len)
         {
@@ -143,7 +138,6 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
     }
     else
     {
-        // Step3 直接发送：
         ip_fragment_out(buf, ip, protocol, this_id, offset, 0);
     }
 }
