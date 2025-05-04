@@ -198,6 +198,7 @@ void tcp_in(buf_t *buf, uint8_t *src_ip)
         // TODO: 仅在收到连接报文时（SYN报文）才做出处理，否则直接返回
         if (!TCP_FLG_ISSET(recv_flags, TCP_FLG_SYN))
         {
+            printf("!TCP_FLG_ISSET(recv_flags, TCP_FLG_SYN)\n");
             return;
         }
 
@@ -219,6 +220,7 @@ void tcp_in(buf_t *buf, uint8_t *src_ip)
         // TODO: 仅在收到确认报文时（ACK报文）才做出处理，否则直接返回
         if (!TCP_FLG_ISSET(recv_flags, TCP_FLG_ACK))
         {
+            printf("!TCP_FLG_ISSET(recv_flags, TCP_FLG_ACK)\n");
             return;
         }
 
@@ -231,6 +233,7 @@ void tcp_in(buf_t *buf, uint8_t *src_ip)
         // 未收到顺序包，丢弃并发送重复 ACK
         if (remote_seq != tcp_conn->ack)
         {
+            printf("remote_seq != tcp_conn->ack\n");
             buf_init(&txbuf, 0);
             tcp_out(tcp_conn, &txbuf, host_port, remote_ip, remote_port, TCP_FLG_ACK);
             return;

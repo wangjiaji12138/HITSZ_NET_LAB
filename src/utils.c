@@ -80,21 +80,20 @@ uint16_t checksum16(uint16_t *data, size_t len)
 {
     // TO-DO
     uint32_t sum = 0;
-    while (len > 1)
+    for (int i = 0; i < len; i += 2)
     {
-        sum += *data++;
-        len -= 2;
-    }
-    if (len == 1)
-    {
-        sum += swap16(*(uint8_t *)data);
+        if (i == len - 1)
+            sum += *((uint8_t *)data + i);
+        else
+            sum += data[i / 2];
     }
 
     while (sum >> 16)
     {
-        sum = (sum & 0xffff) + (sum >> 16);
+        sum = (sum & 0xFFFF) + (sum >> 16);
     }
-    return (uint16_t)~sum;
+
+    return (~sum) & 0xFFFF;
 }
 
 #pragma pack(1)

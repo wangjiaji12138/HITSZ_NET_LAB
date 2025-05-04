@@ -39,13 +39,17 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
     // step3
     uint16_t checksum = ip_hdr->hdr_checksum16;
     ip_hdr->hdr_checksum16 = 0;
-    ip_hdr->hdr_checksum16 = checksum16((uint16_t *)buf->data, sizeof(ip_hdr_t));
+    ip_hdr->hdr_checksum16 = checksum16((uint16_t *)ip_hdr, sizeof(ip_hdr_t));
     if (checksum != ip_hdr->hdr_checksum16)
     {
         printf("checksum changed from %d to %d !\n", checksum, ip_hdr->hdr_checksum16);
         return;
     }
-    ip_hdr->hdr_checksum16 = checksum;
+    else
+    {
+        printf("checksum is right!\n", checksum, ip_hdr->hdr_checksum16);
+        ip_hdr->hdr_checksum16 = checksum;
+    }
 
     // step4
     if (memcmp(ip_hdr->dst_ip, net_if_ip, NET_IP_LEN) != 0)
