@@ -42,12 +42,10 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
     ip_hdr->hdr_checksum16 = checksum16((uint16_t *)ip_hdr, sizeof(ip_hdr_t));
     if (checksum != ip_hdr->hdr_checksum16)
     {
-        printf("checksum changed from %d to %d !\n", checksum, ip_hdr->hdr_checksum16);
         return;
     }
     else
     {
-        printf("checksum is right!\n", checksum, ip_hdr->hdr_checksum16);
         ip_hdr->hdr_checksum16 = checksum;
     }
 
@@ -92,7 +90,7 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
     buf_add_header(buf, sizeof(ip_hdr_t));
     // 构造ip头部
     ip_hdr_t *ip_hdr = (ip_hdr_t *)buf->data;
-    ip_hdr->hdr_len = 5;
+    ip_hdr->hdr_len = sizeof(ip_hdr_t) / IP_HDR_LEN_PER_BYTE;
     ip_hdr->version = IP_VERSION_4;
     ip_hdr->tos = 0;
     ip_hdr->total_len16 = swap16(buf->len);
@@ -122,37 +120,31 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
     // TO-DO
     int this_id = global_id++;
     int offset = 0;
-    int mf = 1;
-    size_t max_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
+    int max_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
+    // Step1 检查数据报包长：
     if (buf->len > max_len)
     {
-        printf("buf->len > ETHERNET_MAX_TRANSPORT_UNIT-sizeof(ip_hdr_t)\n");
-        uint16_t buf_len = buf->len;
-        while (buf_len > 0)
+
+        // Step2 分片处理：
+        buf_t ip_buf;
+        while (buf->len > max_len)
         {
-            buf_t tmp_buf;
-            buf_t *ip_buf = &tmp_buf;
-            if (buf_len > max_len)
-            {
-                buf_init(ip_buf, max_len);
-                memcpy(ip_buf->data, buf->data, max_len);
-                buf_remove_header(buf, max_len);
-                buf_len -= max_len;
-            }
-            else
-            {
-                mf = 0;
-                buf_init(ip_buf, (size_t)buf_len);
-                memcpy(ip_buf->data, buf->data, buf_len);
-                buf_len -= buf_len;
-            }
-            ip_fragment_out(ip_buf, ip, protocol, this_id, offset, mf);
-            offset += 185;
+            buf_init(&ip_buf, max_len);
+
+            memcpy(ip_buf.data, buf->data, max_len);
+            ip_fragment_out(&ip_buf, ip, protocol, this_id, offset, 1);
+            buf_remove_header(buf, max_len);
+            offset += max_len;
         }
+
+        buf_init(&ip_buf, buf->len);
+        memcpy(ip_buf.data, buf->data, buf->len);
+        ip_fragment_out(&ip_buf, ip, protocol, this_id, offset, 0);
     }
     else
     {
-        ip_fragment_out(buf, ip, protocol, this_id, offset, mf);
+        // Step3 直接发送：
+        ip_fragment_out(buf, ip, protocol, this_id, offset, 0);
     }
 }
 

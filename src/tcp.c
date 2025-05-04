@@ -220,7 +220,6 @@ void tcp_in(buf_t *buf, uint8_t *src_ip)
         // TODO: 仅在收到确认报文时（ACK报文）才做出处理，否则直接返回
         if (!TCP_FLG_ISSET(recv_flags, TCP_FLG_ACK))
         {
-            printf("!TCP_FLG_ISSET(recv_flags, TCP_FLG_ACK)\n");
             return;
         }
 
